@@ -1,0 +1,14 @@
+<Solution>
+  <Folder Name="/samples/">
+    <Project Path="samples/VoiceToText.Samples.Console/VoiceToText.Samples.Console.csproj" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/VoiceToText.Audio.NAudio/VoiceToText.Audio.NAudio.csproj" />
+    <Project Path="src/VoiceToText.Vosk/VoiceToText.Vosk.csproj" />
+    <Project Path="src/VoiceToText.Whisper/VoiceToText.Whisper.csproj" />
+    <Project Path="src/VoiceToText/VoiceToText.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/VoiceToText.Tests/VoiceToText.Tests.csproj" />
+  </Folder>
+</Solution>
