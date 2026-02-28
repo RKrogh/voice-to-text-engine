@@ -40,6 +40,7 @@ TestResult.xml
 
 ## Models (large binary files)
 models/
+ggml-*.bin
 
 ## OS
 Thumbs.db
