@@ -43,6 +43,27 @@ dotnet test                               # Run tests
 dotnet run --project samples/VoiceToText.Samples.Console  # Run sample
 ```
 
+### Console Sample CLI
+
+```bash
+dotnet run --project samples/VoiceToText.Samples.Console -- [options] [audio.wav]
+
+Options:
+  --mic              Live microphone streaming (Windows only, requires NAudio)
+  --vosk             Use Vosk provider (true streaming, lightweight)
+  --whisper          Use Whisper provider (default, best accuracy)
+  --model <path>     Path to model file (.bin for Whisper) or directory (Vosk)
+
+Examples:
+  dotnet run -- --mic                                           # Whisper mic mode
+  dotnet run -- --mic --vosk --model models/vosk-model-en-us    # Vosk mic mode
+  dotnet run -- hello-world.wav                                 # Whisper file mode
+```
+
+### Models
+
+Models are stored in `models/` (gitignored). Whisper models auto-download if missing. Vosk models must be downloaded manually from https://alphacephei.com/vosk/models — extract so the model directory contains `am/`, `conf/`, `graph/`, `ivector/`.
+
 ## Target Frameworks
 
 - `net10.0` - Primary target (.NET 10)
@@ -58,8 +79,7 @@ dotnet run --project samples/VoiceToText.Samples.Console  # Run sample
 
 ## Git Workflow
 
-Feature branches off `main`. Providers developed in parallel:
-- `feature/core-abstractions` → `feature/vosk-provider`, `feature/whisper-provider`, `feature/audio-naudio` (parallel) → `feature/sample-console`
+Feature branches off `main`, squash-merged for linear history. Use git worktrees for parallel work.
 
 ## Dependencies
 
