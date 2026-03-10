@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0;netstandard2.1</TargetFrameworks>
+    <TargetFramework>net10.0</TargetFramework>
     <PackageId>VoiceToText.Audio.NAudio</PackageId>
     <Description>NAudio-based microphone capture for VoiceToText (Windows)</Description>
   </PropertyGroup>
