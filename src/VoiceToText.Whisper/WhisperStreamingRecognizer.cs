@@ -1,3 +1,5 @@
+using System.Buffers.Binary;
+using System.Text;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using VoiceToText.Abstractions;
@@ -169,7 +171,7 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
 
         var factory = GetOrCreateFactory();
         using var processor = CreateProcessor(factory);
-        using var stream = new MemoryStream(audioData);
+        using var stream = CreateWavStream(audioData);
 
         var lastText = string.Empty;
 
@@ -202,7 +204,7 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
 
         var factory = GetOrCreateFactory();
         using var processor = CreateProcessor(factory);
-        using var stream = new MemoryStream(audioData);
+        using var stream = CreateWavStream(audioData);
 
         var segments = new List<string>();
 
@@ -220,6 +222,52 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
                 new StreamingRecognitionEventArgs { Text = fullText, IsFinal = true }
             );
         }
+    }
+
+    /// <summary>
+    /// Wraps raw 16kHz mono 16-bit PCM data in a WAV container so Whisper.net can parse it.
+    /// </summary>
+    private static MemoryStream CreateWavStream(byte[] pcmData)
+    {
+        const int headerSize = 44;
+        var stream = new MemoryStream(headerSize + pcmData.Length);
+        var header = new byte[headerSize];
+
+        // RIFF header
+        Encoding.ASCII.GetBytes("RIFF", header.AsSpan(0, 4));
+        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(4), headerSize - 8 + pcmData.Length);
+        Encoding.ASCII.GetBytes("WAVE", header.AsSpan(8, 4));
+
+        // fmt chunk
+        Encoding.ASCII.GetBytes("fmt ", header.AsSpan(12, 4));
+        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(16), 16); // chunk size
+        BinaryPrimitives.WriteInt16LittleEndian(header.AsSpan(20), 1); // PCM format
+        BinaryPrimitives.WriteInt16LittleEndian(
+            header.AsSpan(22),
+            (short)AudioConstants.DefaultChannels
+        );
+        BinaryPrimitives.WriteInt32LittleEndian(
+            header.AsSpan(24),
+            AudioConstants.DefaultSampleRate
+        );
+        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(28), AudioConstants.DefaultByteRate);
+        BinaryPrimitives.WriteInt16LittleEndian(
+            header.AsSpan(32),
+            (short)AudioConstants.DefaultBlockAlign
+        );
+        BinaryPrimitives.WriteInt16LittleEndian(
+            header.AsSpan(34),
+            (short)AudioConstants.DefaultBitsPerSample
+        );
+
+        // data chunk
+        Encoding.ASCII.GetBytes("data", header.AsSpan(36, 4));
+        BinaryPrimitives.WriteInt32LittleEndian(header.AsSpan(40), pcmData.Length);
+
+        stream.Write(header, 0, headerSize);
+        stream.Write(pcmData, 0, pcmData.Length);
+        stream.Position = 0;
+        return stream;
     }
 
     private WhisperFactory GetOrCreateFactory()

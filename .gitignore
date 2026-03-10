@@ -41,6 +41,8 @@ TestResult.xml
 ## Models (large binary files)
 models/
 ggml-*.bin
+vosk-model-*/
+*.zip
 
 ## OS
 Thumbs.db
