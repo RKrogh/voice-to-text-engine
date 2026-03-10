@@ -4,47 +4,39 @@ using VoiceToText.Abstractions;
 using VoiceToText.DependencyInjection;
 using Whisper.net.Ggml;
 
-var micMode = args.Contains("--mic", StringComparer.OrdinalIgnoreCase);
-var filteredArgs = args.Where(a => !a.Equals("--mic", StringComparison.OrdinalIgnoreCase)).ToArray();
+var parsed = ParseArgs(args);
 
-if (micMode)
+if (parsed.ShowHelp)
 {
-    await RunMicMode(filteredArgs);
+    PrintUsage();
+    return;
 }
+
+if (parsed.MicMode)
+    await RunMicMode(parsed);
 else
-{
-    await RunFileMode(filteredArgs);
-}
+    await RunFileMode(parsed);
 
-static async Task RunFileMode(string[] args)
+static async Task RunFileMode(ParsedArgs parsed)
 {
-    // --- Parse arguments ---
-    var defaultWav = Path.Combine(AppContext.BaseDirectory, "hello-world.wav");
-    var wavPath = args.Length > 0 ? args[0] : defaultWav;
-    var modelPath = args.Length > 1 ? args[1] : "ggml-tiny.bin";
-
-    if (!File.Exists(wavPath) && args.Length == 0)
-    {
-        PrintUsage();
-        return;
-    }
+    var wavPath = parsed.AudioFile ?? Path.Combine(AppContext.BaseDirectory, "hello-world.wav");
 
     if (!File.Exists(wavPath))
     {
         Console.Error.WriteLine($"Error: WAV file not found: {wavPath}");
+        PrintUsage();
         return;
     }
 
-    var (services, modelPathResolved) = await SetupServices(modelPath);
-    services.AddVoiceToText().AddWhisperRecognizer(opts => opts.ModelPath = modelPathResolved);
+    var services = new ServiceCollection();
+    services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+    await ConfigureProvider(services, parsed);
 
     await using var provider = services.BuildServiceProvider();
-
-    // --- Transcribe ---
     await using var recognizer = provider.GetRequiredService<ISpeechRecognizer>();
     await using var audioStream = File.OpenRead(wavPath);
 
-    Console.WriteLine($"Transcribing: {wavPath}");
+    Console.WriteLine($"Transcribing: {wavPath} (provider: {parsed.Provider})");
     Console.WriteLine();
 
     var result = await recognizer.TranscribeAsync(audioStream);
@@ -65,14 +57,12 @@ static async Task RunFileMode(string[] args)
     }
 }
 
-static async Task RunMicMode(string[] args)
+static async Task RunMicMode(ParsedArgs parsed)
 {
-    var modelPath = args.Length > 0 ? args[0] : "ggml-tiny.bin";
-
-    var (services, modelPathResolved) = await SetupServices(modelPath);
-    services.AddVoiceToText()
-        .AddWhisperRecognizer(opts => opts.ModelPath = modelPathResolved)
-        .AddNAudioMicrophone();
+    var services = new ServiceCollection();
+    services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+    await ConfigureProvider(services, parsed);
+    services.AddNAudioMicrophone();
 
     await using var provider = services.BuildServiceProvider();
 
@@ -98,7 +88,7 @@ static async Task RunMicMode(string[] args)
     await streamingRecognizer.StartAsync();
     await audioSource.StartAsync();
 
-    Console.WriteLine("Listening... Press Enter to stop.");
+    Console.WriteLine($"Listening with {parsed.Provider}... Press Enter to stop.");
     Console.WriteLine();
     Console.ReadLine();
 
@@ -109,38 +99,113 @@ static async Task RunMicMode(string[] args)
     Console.WriteLine("Done.");
 }
 
-static async Task<(ServiceCollection services, string modelPath)> SetupServices(string modelPath)
+static async Task ConfigureProvider(ServiceCollection services, ParsedArgs parsed)
 {
-    // --- Download model if needed ---
-    if (!File.Exists(modelPath))
+    services.AddVoiceToText();
+
+    if (parsed.Provider == "vosk")
     {
-        Console.WriteLine($"Model not found at '{modelPath}'. Downloading ggml-tiny model...");
-        using var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(GgmlType.Tiny);
-        using var fileWriter = File.OpenWrite(modelPath);
-        await modelStream.CopyToAsync(fileWriter);
-        Console.WriteLine("Download complete.");
+        var modelPath = parsed.ModelPath ?? "models/vosk-model-small-en-us-0.15";
+
+        if (!Directory.Exists(modelPath))
+        {
+            Console.Error.WriteLine($"Error: Vosk model directory not found: {modelPath}");
+            Console.Error.WriteLine("Download a model from https://alphacephei.com/vosk/models");
+            Console.Error.WriteLine("Extract it and pass the directory path with --model <path>");
+            Environment.Exit(1);
+        }
+
+        services.AddVoskRecognizer(opts => opts.ModelPath = modelPath);
+    }
+    else
+    {
+        var modelPath = parsed.ModelPath ?? "models/ggml-tiny.bin";
+
+        if (!File.Exists(modelPath))
+        {
+            Console.WriteLine($"Model not found at '{modelPath}'. Downloading ggml-tiny model...");
+            using var modelStream = await WhisperGgmlDownloader.Default.GetGgmlModelAsync(
+                GgmlType.Tiny
+            );
+            using var fileWriter = File.OpenWrite(modelPath);
+            await modelStream.CopyToAsync(fileWriter);
+            Console.WriteLine("Download complete.");
+        }
+
+        services.AddWhisperRecognizer(opts => opts.ModelPath = modelPath);
+    }
+}
+
+static ParsedArgs ParseArgs(string[] args)
+{
+    var parsed = new ParsedArgs();
+    var positional = new List<string>();
+
+    for (var i = 0; i < args.Length; i++)
+    {
+        switch (args[i].ToLowerInvariant())
+        {
+            case "--mic":
+                parsed.MicMode = true;
+                break;
+            case "--vosk":
+                parsed.Provider = "vosk";
+                break;
+            case "--whisper":
+                parsed.Provider = "whisper";
+                break;
+            case "--model" when i + 1 < args.Length:
+                parsed.ModelPath = args[++i];
+                break;
+            case "--help"
+            or "-h":
+                parsed.ShowHelp = true;
+                break;
+            default:
+                positional.Add(args[i]);
+                break;
+        }
     }
 
-    var services = new ServiceCollection();
-    services.AddLogging(builder => builder.AddConsole().SetMinimumLevel(LogLevel.Information));
+    if (positional.Count > 0 && !parsed.MicMode)
+        parsed.AudioFile = positional[0];
 
-    return (services, modelPath);
+    return parsed;
 }
 
 static void PrintUsage()
 {
-    Console.WriteLine(
-        "Usage: dotnet run --project samples/VoiceToText.Samples.Console -- [audio.wav] [model-path]"
-    );
-    Console.WriteLine(
-        "       dotnet run --project samples/VoiceToText.Samples.Console -- --mic [model-path]"
-    );
+    Console.WriteLine("VoiceToText Console Sample");
     Console.WriteLine();
-    Console.WriteLine("  [audio.wav]    Path to a WAV file to transcribe (default: hello-world.wav)");
-    Console.WriteLine("  [model-path]   Path to a Whisper GGML model (default: ggml-tiny.bin)");
-    Console.WriteLine("  --mic          Live microphone streaming mode (Windows only, requires NAudio)");
+    Console.WriteLine("Usage:");
+    Console.WriteLine("  dotnet run -- [options] [audio.wav]");
+    Console.WriteLine();
+    Console.WriteLine("Options:");
+    Console.WriteLine(
+        "  --mic              Live microphone streaming mode (Windows only, requires NAudio)"
+    );
+    Console.WriteLine("  --vosk             Use Vosk provider (true streaming, lightweight)");
+    Console.WriteLine("  --whisper          Use Whisper provider (default, best accuracy)");
+    Console.WriteLine("  --model <path>     Path to model file (Whisper .bin) or directory (Vosk)");
+    Console.WriteLine("  -h, --help         Show this help");
+    Console.WriteLine();
+    Console.WriteLine("Examples:");
+    Console.WriteLine("  dotnet run -- hello-world.wav");
+    Console.WriteLine("  dotnet run -- --mic");
+    Console.WriteLine("  dotnet run -- --mic --vosk --model vosk-model-small-en-us-0.15");
+    Console.WriteLine("  dotnet run -- --vosk --model vosk-model-small-en-us-0.15 recording.wav");
     Console.WriteLine();
     Console.WriteLine(
-        "If the model file doesn't exist, it will be downloaded automatically (~75 MB for tiny)."
+        "Whisper models are auto-downloaded if missing. Vosk models must be downloaded"
     );
+    Console.WriteLine("manually from https://alphacephei.com/vosk/models");
+}
+
+class ParsedArgs
+{
+    public bool MicMode { get; set; }
+    public string Provider { get; set; } = "whisper";
+    public string? ModelPath { get; set; }
+    public string? AudioFile { get; set; }
+    public bool ShowHelp { get; set; }
 }
