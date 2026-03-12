@@ -39,7 +39,7 @@ bld/
 TestResult.xml
 
 ## Models (large binary files)
-models/
+/models/
 ggml-*.bin
 vosk-model-*/
 *.zip
