@@ -1,100 +1,47 @@
 # VoiceToText
 
+[![Build](https://github.com/RKrogh/voice-to-text-engine/actions/workflows/ci.yml/badge.svg)](https://github.com/RKrogh/voice-to-text-engine/actions/workflows/ci.yml)
+[![NuGet](https://img.shields.io/nuget/v/VoiceToText.svg)](https://www.nuget.org/packages/VoiceToText)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 A C# speech-to-text library with a provider abstraction layer. Supports multiple STT backends through a common interface, designed for reuse across transcribers, Unity games, desktop apps, and more.
 
-## Status
+## Packages
 
-**Early development** — the core abstractions and audio utilities are implemented. Provider implementations (Vosk, Whisper.net) and the audio capture layer (NAudio) are scaffolded but not yet implemented.
-
-What's done:
-- Core interfaces: `ISpeechRecognizer`, `IStreamingRecognizer`, `IAudioSource`
-- Data models: `TranscriptionResult`, `TranscriptionSegment`, `AudioFormat`, etc.
-- Audio utilities: format conversion, resampling, stereo-to-mono, PCM/float conversion
-- Dependency injection entry point (`AddVoiceToText()`)
-- Solution structure and build configuration
-
-What's not yet implemented:
-- Vosk provider (real-time streaming)
-- Whisper.net provider (batch transcription)
-- NAudio microphone capture (Windows)
-- Console sample app
-- Unit tests
+| Package | Description |
+|---|---|
+| `VoiceToText` | Core abstractions (zero STT dependencies) |
+| `VoiceToText.Vosk` | Vosk provider — true streaming, lightweight, sub-second latency |
+| `VoiceToText.Whisper` | Whisper.net provider — best accuracy, batch model (streaming simulated with 2-3s buffer) |
+| `VoiceToText.Audio.NAudio` | Windows microphone capture via NAudio |
 
 ## Prerequisites
 
 - [.NET 10 SDK](https://dotnet.microsoft.com/download/dotnet/10.0) (10.0.100 or later)
+- A speech model — Whisper models auto-download; Vosk models must be [downloaded manually](https://alphacephei.com/vosk/models)
 
-## Building
+## Usage
 
-```bash
-dotnet build
-```
-
-To build just the core library:
-
-```bash
-dotnet build src/VoiceToText/
-```
-
-## Project Structure
-
-```
-src/
-  VoiceToText/                    Core abstractions (zero STT dependencies)
-  VoiceToText.Vosk/               Vosk provider (not yet implemented)
-  VoiceToText.Whisper/            Whisper.net provider (not yet implemented)
-  VoiceToText.Audio.NAudio/       Windows microphone capture (not yet implemented)
-samples/
-  VoiceToText.Samples.Console/    Push-to-talk demo (not yet implemented)
-tests/
-  VoiceToText.Tests/              Unit tests (not yet implemented)
-```
-
-## Architecture
-
-### Core Interfaces
-
-**`ISpeechRecognizer`** — batch/file transcription:
+### Register services
 
 ```csharp
-Task<TranscriptionResult> TranscribeAsync(Stream audioStream, ...);
-IAsyncEnumerable<TranscriptionSegment> TranscribeSegmentsAsync(Stream audioStream, ...);
-```
-
-**`IStreamingRecognizer`** — real-time audio with partial/final results via events:
-
-```csharp
-Task StartAsync(...);
-void PushAudio(ReadOnlySpan<byte> pcmData);
-void PushAudio(ReadOnlySpan<float> samples);
-Task StopAsync(...);
-event EventHandler<StreamingRecognitionEventArgs>? PartialResultReceived;
-event EventHandler<StreamingRecognitionEventArgs>? FinalResultReceived;
-```
-
-**`IAudioSource`** — audio input (microphone, file, etc.):
-
-```csharp
-Task StartAsync(...);
-Task StopAsync(...);
-event EventHandler<AudioDataEventArgs>? DataAvailable;
-```
-
-### Intended Usage (once providers are implemented)
-
-```csharp
-// Register services
 services.AddVoiceToText()
     .AddVoskRecognizer(opts => opts.ModelPath = "models/vosk-model-small-en-us")
     .AddNAudioMicrophone();
+```
 
-// Batch transcription
+### Batch transcription
+
+```csharp
 await using var recognizer = serviceProvider.GetRequiredService<ISpeechRecognizer>();
 await using var stream = File.OpenRead("audio.wav");
 var result = await recognizer.TranscribeAsync(stream);
 Console.WriteLine(result.Text);
+```
 
-// Real-time streaming
+### Real-time streaming
+
+```csharp
 var streaming = serviceProvider.GetRequiredService<IStreamingRecognizer>();
 streaming.FinalResultReceived += (_, e) => Console.WriteLine(e.Text);
 await streaming.StartAsync();
@@ -102,42 +49,72 @@ await streaming.StartAsync();
 await streaming.StopAsync();
 ```
 
+## Console Sample
+
+The included console sample supports file transcription and live microphone input.
+
+```bash
+# Transcribe a WAV file (defaults to Whisper)
+dotnet run --project samples/VoiceToText.Samples.Console -- hello-world.wav
+
+# Live microphone with Vosk
+dotnet run --project samples/VoiceToText.Samples.Console -- --mic --vosk --model vosk-model-small-en-us-0.15
+
+# Live microphone with Whisper (default)
+dotnet run --project samples/VoiceToText.Samples.Console -- --mic
+```
+
+**Options:**
+
+| Flag | Description |
+|---|---|
+| `--mic` | Live microphone streaming (Windows only) |
+| `--vosk` | Use Vosk provider |
+| `--whisper` | Use Whisper provider (default) |
+| `--model <path>` | Path to model file (.bin) or directory |
+
+## Project Structure
+
+```
+src/
+  VoiceToText/                    Core abstractions (zero STT dependencies)
+  VoiceToText.Vosk/               Vosk provider (true streaming)
+  VoiceToText.Whisper/            Whisper.net provider (batch, best accuracy)
+  VoiceToText.Audio.NAudio/       Windows microphone capture
+samples/
+  VoiceToText.Samples.Console/    Push-to-talk console demo
+tests/
+  VoiceToText.Tests/              Unit tests (26 tests)
+```
+
+## Architecture
+
+### Core Interfaces
+
+- **`ISpeechRecognizer`** — batch/file transcription (`TranscribeAsync`, `TranscribeSegmentsAsync`)
+- **`IStreamingRecognizer`** — real-time streaming with `PushAudio()` + `PartialResultReceived`/`FinalResultReceived` events
+- **`IAudioSource`** — audio input abstraction (microphone, file) with `DataAvailable` event
+
 ### Audio Pipeline
 
-All audio is normalized to **16kHz mono 16-bit PCM**. The `AudioFormatConverter` utility handles:
-- Stereo to mono conversion
-- Sample rate resampling
-- PCM ↔ float conversion
-
-### Providers
-
-| Provider | Package | License | Characteristics |
-|---|---|---|---|
-| Vosk | `VoiceToText.Vosk` | Apache 2.0 | True streaming, lightweight, sub-second latency |
-| Whisper.net | `VoiceToText.Whisper` | MIT | Best accuracy, batch model (streaming is simulated with 2-3s latency buffer) |
-
-### Audio Sources
-
-| Source | Package | Platform |
-|---|---|---|
-| NAudio | `VoiceToText.Audio.NAudio` | Windows only |
+All audio is normalized to **16kHz mono 16-bit PCM**. The `AudioFormatConverter` utility handles stereo-to-mono, resampling, and PCM/float conversion.
 
 ## Target Frameworks
 
 - `net10.0` — primary target
 - `netstandard2.1` — Unity 2021+ and broad compatibility
 
+## Building
+
+```bash
+dotnet build
+dotnet test
+dotnet pack    # produces 4 .nupkg files
+```
+
 ## Contributing
 
-Feature branches off `main`. Providers are developed in parallel:
-
-```
-main → feature/core-abstractions
-     → feature/vosk-provider
-     → feature/whisper-provider
-     → feature/audio-naudio
-     → feature/sample-console
-```
+Feature branches off `main`. PRs welcome.
 
 ## License
 
