@@ -39,6 +39,11 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
         CancellationToken cancellationToken
     )
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(audioStream);
+#else
+        if (audioStream is null) throw new ArgumentNullException(nameof(audioStream));
+#endif
         ThrowIfDisposed();
 
         var segments = new List<TranscriptionSegment>();
@@ -68,6 +73,11 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
         [EnumeratorCancellation] CancellationToken cancellationToken
     )
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(audioStream);
+#else
+        if (audioStream is null) throw new ArgumentNullException(nameof(audioStream));
+#endif
         ThrowIfDisposed();
 
         var model = GetOrCreateModel();
@@ -105,6 +115,12 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
         _logger.LogDebug("Vosk batch transcription complete");
     }
 
+    /// <summary>
+    /// Maximum allowed WAV chunk size (~1 GB). Prevents malicious chunkSize headers
+    /// from causing unbounded memory allocation.
+    /// </summary>
+    private const int MaxWavChunkSize = 1_073_741_824;
+
     private static async Task<byte[]> ReadPcmDataAsync(
         Stream audioStream,
         CancellationToken cancellationToken
@@ -130,10 +146,16 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
                 var chunkId = System.Text.Encoding.ASCII.GetString(data, pos, 4);
                 var chunkSize = BitConverter.ToInt32(data, pos + 4);
 
+                if (chunkSize < 0 || chunkSize > MaxWavChunkSize)
+                    throw new InvalidOperationException(
+                        $"WAV chunk '{chunkId}' declares size {chunkSize}, which exceeds the maximum allowed size of {MaxWavChunkSize} bytes."
+                    );
+
                 if (chunkId == "data")
                 {
-                    var pcm = new byte[chunkSize];
-                    Array.Copy(data, pos + 8, pcm, 0, Math.Min(chunkSize, data.Length - pos - 8));
+                    var actualSize = Math.Min(chunkSize, data.Length - pos - 8);
+                    var pcm = new byte[actualSize];
+                    Array.Copy(data, pos + 8, pcm, 0, actualSize);
                     return pcm;
                 }
 
@@ -204,6 +226,12 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
     {
         if (_model is not null)
             return _model;
+
+        if (string.IsNullOrWhiteSpace(_options.ModelPath))
+            throw new InvalidOperationException("VoskRecognizerOptions.ModelPath must be set to a non-empty path.");
+
+        if (!Directory.Exists(_options.ModelPath))
+            throw new InvalidOperationException($"Vosk model directory does not exist: '{_options.ModelPath}'.");
 
         _logger.LogInformation("Loading Vosk model from {ModelPath}", _options.ModelPath);
         global::Vosk.Vosk.SetLogLevel(0);

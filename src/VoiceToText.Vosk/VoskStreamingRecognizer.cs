@@ -169,6 +169,12 @@ public sealed class VoskStreamingRecognizer : IStreamingRecognizer
         if (_model is not null)
             return _model;
 
+        if (string.IsNullOrWhiteSpace(_options.ModelPath))
+            throw new InvalidOperationException("VoskRecognizerOptions.ModelPath must be set to a non-empty path.");
+
+        if (!Directory.Exists(_options.ModelPath))
+            throw new InvalidOperationException($"Vosk model directory does not exist: '{_options.ModelPath}'.");
+
         _logger.LogInformation("Loading Vosk model from {ModelPath}", _options.ModelPath);
         global::Vosk.Vosk.SetLogLevel(0);
         _model = new Model(_options.ModelPath);

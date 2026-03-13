@@ -26,4 +26,10 @@ public class WhisperRecognizerOptions
     /// Default: 3 seconds.
     /// </summary>
     public TimeSpan StreamingBufferDuration { get; set; } = TimeSpan.FromSeconds(3);
+
+    /// <summary>
+    /// Maximum size in bytes for the streaming audio buffer. Prevents unbounded memory growth
+    /// if audio is pushed faster than it can be processed. Default: 50 MB.
+    /// </summary>
+    public long MaxStreamingBufferBytes { get; set; } = 50 * 1024 * 1024;
 }

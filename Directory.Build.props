@@ -12,11 +12,14 @@
     <Version>0.1.0</Version>
     <RepositoryUrl>https://github.com/RKrogh/voice-to-text-engine</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <EmbedUntrackedSources>true</EmbedUntrackedSources>
     <PackageTags>speech-to-text;stt;whisper;vosk;transcription;audio</PackageTags>
     <PackageProjectUrl>https://github.com/RKrogh/voice-to-text-engine</PackageProjectUrl>
     <PackageReadmeFile>README.md</PackageReadmeFile>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)README.md" Pack="true" PackagePath="\" />
+    <PackageReference Include="Microsoft.SourceLink.GitHub" PrivateAssets="all" />
   </ItemGroup>
 </Project>

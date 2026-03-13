@@ -5,6 +5,9 @@
     <Description>Whisper.net speech-to-text provider for VoiceToText</Description>
   </PropertyGroup>
   <ItemGroup>
+    <InternalsVisibleTo Include="VoiceToText.Tests" />
+  </ItemGroup>
+  <ItemGroup>
     <ProjectReference Include="..\VoiceToText\VoiceToText.csproj" />
     <PackageReference Include="Whisper.net" />
   </ItemGroup>

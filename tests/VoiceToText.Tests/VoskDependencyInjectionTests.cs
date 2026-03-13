@@ -58,4 +58,24 @@ public class VoskDependencyInjectionTests
         Assert.Equal(3, options.Value.MaxAlternatives);
         Assert.True(options.Value.Words);
     }
+
+    [Fact]
+    public void AddVoskRecognizer_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddVoskRecognizer(null!)
+        );
+    }
+
+    [Fact]
+    public void AddVoskRecognizer_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddVoskRecognizer(opts => opts.ModelPath = "test")
+        );
+    }
 }
