@@ -38,6 +38,11 @@ public sealed class WhisperSpeechRecognizer : ISpeechRecognizer
         CancellationToken cancellationToken
     )
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(audioStream);
+#else
+        if (audioStream is null) throw new ArgumentNullException(nameof(audioStream));
+#endif
         ThrowIfDisposed();
 
         var segments = new List<TranscriptionSegment>();
@@ -67,6 +72,11 @@ public sealed class WhisperSpeechRecognizer : ISpeechRecognizer
         [EnumeratorCancellation] CancellationToken cancellationToken
     )
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(audioStream);
+#else
+        if (audioStream is null) throw new ArgumentNullException(nameof(audioStream));
+#endif
         ThrowIfDisposed();
 
         var factory = GetOrCreateFactory();
@@ -142,6 +152,12 @@ public sealed class WhisperSpeechRecognizer : ISpeechRecognizer
     {
         if (_factory is not null)
             return _factory;
+
+        if (string.IsNullOrWhiteSpace(_options.ModelPath))
+            throw new InvalidOperationException("WhisperRecognizerOptions.ModelPath must be set to a non-empty path.");
+
+        if (!File.Exists(_options.ModelPath))
+            throw new InvalidOperationException($"Whisper model file does not exist: '{_options.ModelPath}'.");
 
         _logger.LogInformation("Loading Whisper model from {ModelPath}", _options.ModelPath);
         _factory = WhisperFactory.FromPath(_options.ModelPath);

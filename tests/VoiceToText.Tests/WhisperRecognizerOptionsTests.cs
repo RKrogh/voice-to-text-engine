@@ -13,6 +13,7 @@ public class WhisperRecognizerOptionsTests
         Assert.Equal(0, options.Threads);
         Assert.False(options.Translate);
         Assert.Equal(TimeSpan.FromSeconds(3), options.StreamingBufferDuration);
+        Assert.Equal(50 * 1024 * 1024, options.MaxStreamingBufferBytes);
     }
 
     [Fact]

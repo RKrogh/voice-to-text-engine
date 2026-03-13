@@ -82,6 +82,12 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
 
         lock (_audioBuffer!)
         {
+            if (_audioBuffer.Length + pcmData.Length > _options.MaxStreamingBufferBytes)
+                throw new InvalidOperationException(
+                    $"Streaming audio buffer would exceed the maximum allowed size of {_options.MaxStreamingBufferBytes} bytes. "
+                    + "Increase WhisperRecognizerOptions.MaxStreamingBufferBytes or process audio faster."
+                );
+
             _audioBuffer.Write(pcmData);
         }
     }
@@ -274,6 +280,12 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
     {
         if (_factory is not null)
             return _factory;
+
+        if (string.IsNullOrWhiteSpace(_options.ModelPath))
+            throw new InvalidOperationException("WhisperRecognizerOptions.ModelPath must be set to a non-empty path.");
+
+        if (!File.Exists(_options.ModelPath))
+            throw new InvalidOperationException($"Whisper model file does not exist: '{_options.ModelPath}'.");
 
         _logger.LogInformation("Loading Whisper model from {ModelPath}", _options.ModelPath);
         _factory = WhisperFactory.FromPath(_options.ModelPath);

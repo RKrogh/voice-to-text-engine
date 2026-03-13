@@ -62,4 +62,28 @@ public class VoskStreamingRecognizerTests
 
         Assert.Throws<ObjectDisposedException>(() => recognizer.PushAudio(new byte[] { 0, 0 }));
     }
+
+    [Fact]
+    public async Task StartAsync_EmptyModelPath_ThrowsInvalidOperationException()
+    {
+        using var recognizer = CreateRecognizer(modelPath: "");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => recognizer.StartAsync(null, CancellationToken.None)
+        );
+
+        Assert.Contains("ModelPath must be set", ex.Message);
+    }
+
+    [Fact]
+    public async Task StartAsync_NonExistentModelPath_ThrowsInvalidOperationException()
+    {
+        using var recognizer = CreateRecognizer(modelPath: "/tmp/definitely-does-not-exist");
+
+        var ex = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => recognizer.StartAsync(null, CancellationToken.None)
+        );
+
+        Assert.Contains("does not exist", ex.Message);
+    }
 }

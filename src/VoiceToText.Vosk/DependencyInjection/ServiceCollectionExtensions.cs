@@ -21,6 +21,14 @@ public static class VoskServiceCollectionExtensions
         Action<VoskRecognizerOptions> configure
     )
     {
+#if NET6_0_OR_GREATER
+        ArgumentNullException.ThrowIfNull(services);
+        ArgumentNullException.ThrowIfNull(configure);
+#else
+        if (services is null) throw new ArgumentNullException(nameof(services));
+        if (configure is null) throw new ArgumentNullException(nameof(configure));
+#endif
+
         services.Configure(configure);
         services.AddSingleton<ISpeechRecognizer, VoskSpeechRecognizer>();
         services.AddSingleton<IStreamingRecognizer, VoskStreamingRecognizer>();

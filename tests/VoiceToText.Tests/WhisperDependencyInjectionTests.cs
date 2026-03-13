@@ -60,4 +60,24 @@ public class WhisperDependencyInjectionTests
         Assert.True(options.Value.Translate);
         Assert.Equal(TimeSpan.FromSeconds(5), options.Value.StreamingBufferDuration);
     }
+
+    [Fact]
+    public void AddWhisperRecognizer_NullConfigure_ThrowsArgumentNullException()
+    {
+        var services = new ServiceCollection();
+
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddWhisperRecognizer(null!)
+        );
+    }
+
+    [Fact]
+    public void AddWhisperRecognizer_NullServices_ThrowsArgumentNullException()
+    {
+        IServiceCollection services = null!;
+
+        Assert.Throws<ArgumentNullException>(
+            () => services.AddWhisperRecognizer(opts => opts.ModelPath = "test.bin")
+        );
+    }
 }
