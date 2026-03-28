@@ -4,6 +4,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageVersion Include="Whisper.net" Version="1.9.0" />
+    <PackageVersion Include="Whisper.net.Runtime" Version="1.9.0" />
     <PackageVersion Include="Whisper.net.AllRuntimes" Version="1.9.0" />
     <PackageVersion Include="Vosk" Version="0.3.38" />
     <PackageVersion Include="NAudio" Version="2.2.1" />
