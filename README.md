@@ -49,6 +49,27 @@ await streaming.StartAsync();
 await streaming.StopAsync();
 ```
 
+### Restricting the vocabulary (Vosk)
+
+For command-style input, limit Vosk to the words you expect. Accuracy goes up a lot and
+recognition gets faster. Set a default on the options, or pass phrases per session, which
+lets the vocabulary change between push-to-talk presses:
+
+```csharp
+services.AddVoiceToText()
+    .AddVoskRecognizer(opts =>
+    {
+        opts.ModelPath = "models/vosk-model-en-us-0.22-lgraph";
+        opts.Grammar = ["roll", "pitch", "yaw", "port", "starboard", "ninety", "degrees"];
+    });
+
+await streaming.StartAsync(new RecognizerOptions { Phrases = commandWords });
+```
+
+Speech outside the grammar comes back as `[unk]` (turn off with `AllowUnknownWords = false`).
+The model must support runtime grammars: the small and "lgraph" models do; the big static-graph
+models do not.
+
 ## Console Sample
 
 The included console sample supports file transcription and live microphone input.

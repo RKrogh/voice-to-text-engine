@@ -48,7 +48,7 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
     public bool IsListening { get; private set; }
 
     /// <inheritdoc />
-    public Task StartAsync(RecognizerOptions? options, CancellationToken cancellationToken)
+    public Task StartAsync(RecognizerOptions? options = null, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
@@ -100,7 +100,7 @@ public sealed class WhisperStreamingRecognizer : IStreamingRecognizer
     }
 
     /// <inheritdoc />
-    public async Task StopAsync(CancellationToken cancellationToken)
+    public async Task StopAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 

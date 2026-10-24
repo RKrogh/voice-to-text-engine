@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Text.Json;
 using global::Vosk;
 using Microsoft.Extensions.Logging;
@@ -44,7 +45,7 @@ public sealed class VoskStreamingRecognizer : IStreamingRecognizer
     public bool IsListening { get; private set; }
 
     /// <inheritdoc />
-    public Task StartAsync(RecognizerOptions? options, CancellationToken cancellationToken)
+    public Task StartAsync(RecognizerOptions? options = null, CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
@@ -52,7 +53,11 @@ public sealed class VoskStreamingRecognizer : IStreamingRecognizer
             throw new InvalidOperationException("Streaming session is already active.");
 
         var model = GetOrCreateModel();
-        _recognizer = new VoskRecognizer(model, AudioConstants.DefaultSampleRate);
+        // A recognizer per session, so the grammar can change between push-to-talk presses.
+        var grammar = VoskGrammar.For(_options, options);
+        _recognizer = grammar is null
+            ? new VoskRecognizer(model, AudioConstants.DefaultSampleRate)
+            : new VoskRecognizer(model, AudioConstants.DefaultSampleRate, grammar);
 
         if (_options.Words || options?.WordTimestamps is true)
             _recognizer.SetWords(true);
@@ -77,10 +82,20 @@ public sealed class VoskStreamingRecognizer : IStreamingRecognizer
                 "No active streaming session. Call StartAsync first."
             );
 
-        // Vosk accepts byte[] — copy from span
-        var buffer = pcmData.ToArray();
+        // Vosk accepts byte[] only; rent one instead of allocating per chunk.
+        var buffer = ArrayPool<byte>.Shared.Rent(pcmData.Length);
+        bool final;
+        try
+        {
+            pcmData.CopyTo(buffer);
+            final = _recognizer.AcceptWaveform(buffer, pcmData.Length);
+        }
+        finally
+        {
+            ArrayPool<byte>.Shared.Return(buffer);
+        }
 
-        if (_recognizer.AcceptWaveform(buffer, buffer.Length))
+        if (final)
         {
             var text = ExtractText(_recognizer.Result());
             if (!string.IsNullOrWhiteSpace(text))
@@ -112,7 +127,7 @@ public sealed class VoskStreamingRecognizer : IStreamingRecognizer
     }
 
     /// <inheritdoc />
-    public Task StopAsync(CancellationToken cancellationToken)
+    public Task StopAsync(CancellationToken cancellationToken = default)
     {
         ThrowIfDisposed();
 
