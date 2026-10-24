@@ -1,0 +1,7 @@
+<Project>
+  <!-- Deliberately not importing the repo props: this project consumes the packed packages the
+       way an outside app does, with plain versioned references and no central versions. -->
+  <PropertyGroup>
+    <ImportDirectoryPackagesProps>false</ImportDirectoryPackagesProps>
+  </PropertyGroup>
+</Project>

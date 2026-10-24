@@ -35,8 +35,8 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
     /// <inheritdoc />
     public async Task<TranscriptionResult> TranscribeAsync(
         Stream audioStream,
-        RecognizerOptions? options,
-        CancellationToken cancellationToken
+        RecognizerOptions? options = null,
+        CancellationToken cancellationToken = default
     )
     {
 #if NET6_0_OR_GREATER
@@ -69,8 +69,8 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
     /// <inheritdoc />
     public async IAsyncEnumerable<TranscriptionSegment> TranscribeSegmentsAsync(
         Stream audioStream,
-        RecognizerOptions? options,
-        [EnumeratorCancellation] CancellationToken cancellationToken
+        RecognizerOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
 #if NET6_0_OR_GREATER
@@ -241,7 +241,10 @@ public sealed class VoskSpeechRecognizer : ISpeechRecognizer
 
     private VoskRecognizer CreateRecognizer(Model model, RecognizerOptions? options)
     {
-        var recognizer = new VoskRecognizer(model, AudioConstants.DefaultSampleRate);
+        var grammar = VoskGrammar.For(_options, options);
+        var recognizer = grammar is null
+            ? new VoskRecognizer(model, AudioConstants.DefaultSampleRate)
+            : new VoskRecognizer(model, AudioConstants.DefaultSampleRate, grammar);
 
         if (_options.Words || options?.WordTimestamps is true)
             recognizer.SetWords(true);

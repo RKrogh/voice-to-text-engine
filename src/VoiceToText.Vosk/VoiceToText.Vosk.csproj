@@ -6,7 +6,12 @@
   </PropertyGroup>
   <ItemGroup>
     <ProjectReference Include="..\VoiceToText\VoiceToText.csproj" />
-    <PackageReference Include="Vosk" />
+    <!-- Its native library ships as build assets; NuGet drops those from our dependency unless
+         PrivateAssets is cleared, and consumers then fail with DllNotFoundException. -->
+    <PackageReference Include="Vosk" PrivateAssets="none" />
+  </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="VoiceToText.Tests" />
   </ItemGroup>
   <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.1'">
     <PackageReference Include="System.Text.Json" />

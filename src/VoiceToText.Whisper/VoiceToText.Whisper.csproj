@@ -10,6 +10,8 @@
   <ItemGroup>
     <ProjectReference Include="..\VoiceToText\VoiceToText.csproj" />
     <PackageReference Include="Whisper.net" />
-    <PackageReference Include="Whisper.net.Runtime" />
+    <!-- Its native library ships as build assets; NuGet drops those from our dependency unless
+         PrivateAssets is cleared, and consumers then fail with DllNotFoundException. -->
+    <PackageReference Include="Whisper.net.Runtime" PrivateAssets="none" />
   </ItemGroup>
 </Project>

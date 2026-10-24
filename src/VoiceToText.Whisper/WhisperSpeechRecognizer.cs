@@ -34,8 +34,8 @@ public sealed class WhisperSpeechRecognizer : ISpeechRecognizer
     /// <inheritdoc />
     public async Task<TranscriptionResult> TranscribeAsync(
         Stream audioStream,
-        RecognizerOptions? options,
-        CancellationToken cancellationToken
+        RecognizerOptions? options = null,
+        CancellationToken cancellationToken = default
     )
     {
 #if NET6_0_OR_GREATER
@@ -68,8 +68,8 @@ public sealed class WhisperSpeechRecognizer : ISpeechRecognizer
     /// <inheritdoc />
     public async IAsyncEnumerable<TranscriptionSegment> TranscribeSegmentsAsync(
         Stream audioStream,
-        RecognizerOptions? options,
-        [EnumeratorCancellation] CancellationToken cancellationToken
+        RecognizerOptions? options = null,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default
     )
     {
 #if NET6_0_OR_GREATER
