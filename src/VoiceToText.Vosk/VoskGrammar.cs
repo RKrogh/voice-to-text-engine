@@ -1,3 +1,4 @@
+using System.Text.Encodings.Web;
 using System.Text.Json;
 
 namespace VoiceToText.Vosk;
@@ -7,6 +8,10 @@ internal static class VoskGrammar
 {
     /// <summary>The token Vosk returns for speech outside the grammar.</summary>
     public const string Unknown = "[unk]";
+
+    // Vosk's JSON parser does not decode \uXXXX escapes, and the default encoder escapes
+    // apostrophes and all non-ASCII text, so "don't" or "styrbord" would silently drop out.
+    private static readonly JsonSerializerOptions Json = new() { Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping };
 
     /// <summary>
     /// Returns the grammar JSON for these phrases, or null when there are none (free vocabulary).
@@ -29,10 +34,14 @@ internal static class VoskGrammar
         if (allowUnknown && !list.Contains(Unknown))
             list.Add(Unknown);
 
-        return JsonSerializer.Serialize(list);
+        return JsonSerializer.Serialize(list, Json);
     }
 
-    /// <summary>Per-operation phrases win over the configured default.</summary>
+    /// <summary>
+    /// Per-operation phrases win over the configured default. An empty per-operation list falls
+    /// back to the default rather than switching the grammar off, so an accidentally empty word
+    /// list cannot silently turn a command grammar into free dictation.
+    /// </summary>
     public static string? For(VoskRecognizerOptions options, VoiceToText.Models.RecognizerOptions? operation) =>
-        ToJson(operation?.Phrases ?? options.Grammar, options.AllowUnknownWords);
+        ToJson(operation?.Phrases, options.AllowUnknownWords) ?? ToJson(options.Grammar, options.AllowUnknownWords);
 }
