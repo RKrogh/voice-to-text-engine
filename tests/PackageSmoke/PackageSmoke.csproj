@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!--
+    Installs the freshly packed packages and loads their native libraries. Catches packaging
+    mistakes that unit tests cannot see, such as native assets not reaching consumers.
+    Not part of the solution; CI packs, restores this against the local packages and runs it.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <ManagePackageVersionsCentrally>false</ManagePackageVersionsCentrally>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="VoiceToText.Vosk" Version="$(SmokeVersion)" />
+    <PackageReference Include="VoiceToText.Whisper" Version="$(SmokeVersion)" />
+  </ItemGroup>
+</Project>
